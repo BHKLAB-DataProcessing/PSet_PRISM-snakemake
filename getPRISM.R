@@ -1,10 +1,18 @@
-# Secondary screen
-work_dir = "~/nikta/out/"
-setwd(work_dir)
 library(reshape2)
 library(PharmacoGx)
 library(data.table)
-options(encoding = "UTF-8")
+library(SummarizedExperiment)
+
+annotation_dir <- "/pfs/downAnnotations/" # Stores annotation files used in the script. Kept up to date using Pachyderm's downAnnotations pipeline. 
+sens_dir <- "/pfs/downloadPRISMSensData/" # Stores sensitivity data files
+sec_screen_dir <- "/pfs/downloadPRISMSecScreenData/" # Stores molecular data files
+out_dir <- "/pfs/out/" # Stores the end product (PRISM PSet)
+
+# secondary screen csv file names
+sec_screen_drug <- "secondary-screen-replicate-collapsed-treatment-info.csv"
+sec_screen_cell <- "secondary-screen-cell-line-info.csv"
+sec_screen_dr <- "secondary-screen-replicate-collapsed-logfold-change.csv"
+sec_screen_auc <- "secondary-screen-dose-response-curve-parameters.csv"
 
 ############################################# Molecular profile #############################################
 # There will be no molecular profile as all the cells are from ccle
@@ -34,12 +42,13 @@ emptySE <- SummarizedExperiment::SummarizedExperiment(
 
 ############################################# Drug object-part1 #############################################
 # Drug data (secondary-screen-replicate-collapsed-treatment-info.csv)
-drugs <- read.csv("https://ndownloader.figshare.com/files/20237763" , stringsAsFactors = FALSE)
+# drugs <- read.csv("https://ndownloader.figshare.com/files/20237763" , stringsAsFactors = FALSE)
+drugs <- read.csv(paste0(sec_screen_dir, sec_screen_drug) , stringsAsFactors = FALSE)
 drug.obj <- unique(drugs[!duplicated(drugs$broad_id),- which(colnames(drugs) %in% c("column_name", "dose","screen_id"))])
 colnames(drug.obj)[colnames(drug.obj) == "name"] <- "PRISM.drugid"
 
 # lab durgnames
-lab.drug.names <- read.csv(paste0(work_dir,"drug_with_ids.csv"), stringsAsFactors = F , na.strings = "") # this file is "drug_with_ids.csv" from pachy-annotations
+lab.drug.names <- read.csv(paste0(annotation_dir,"drugs_with_ids.csv"), stringsAsFactors = F , na.strings = "") # this file is "drug_with_ids.csv" from pachy-annotations
 lab.drug.names <- lab.drug.names[!is.na(lab.drug.names$PRISM.drugid), c("unique.drugid" , "PRISM.drugid","cid","inchikey")]
 
 for (i in seq(nrow(lab.drug.names))){
@@ -62,10 +71,11 @@ colnames(drug.obj)[colnames(drug.obj) == "unique.drugid"] <- "drugid"
 
 ############################################# Cell object #############################################
 # Lab cell names
-lab.cell.names <- read.csv(paste0(work_dir,"cell_annotation_all.csv"), stringsAsFactors = F , na.strings = "") # this file is "cell_annotation_all.csv" from pachy annotation 
+lab.cell.names <- read.csv(paste0(annotation_dir,"cell_annotation_all.csv"), stringsAsFactors = F , na.strings = "") # this file is "cell_annotation_all.csv" from pachy annotation 
 
 # Cell-line data (secondary-screen-cell-line-info.csv)
-cells <- read.csv("https://ndownloader.figshare.com/files/20237769" , stringsAsFactors = FALSE)
+# cells <- read.csv("https://ndownloader.figshare.com/files/20237769" , stringsAsFactors = FALSE)
+cells <- read.csv(paste0(sec_screen_dir, sec_screen_cell) , stringsAsFactors = FALSE)
 colnames(cells)[colnames(cells) == "ccle_name"] <- "PRISM.cellid"
 cells <- cells[!is.na(cells$depmap_id) , ] # Removing NA depmap ids
 
@@ -84,9 +94,10 @@ cell.obj [cell.obj == ""] <- NA
 # Collapsed log_fold_change (secondary-screen-replicate-collapsed-logfold-change.csv)
 # Columns: IDs identifying experimental conditions. See column name from primary_replicate_collapsed_treatment_info
 # Rows: IDs identifying cell lines. See row_name from cell_line_info
-dose.resp.file <- tempfile()
-download.file("https://ndownloader.figshare.com/files/20237757", dose.resp.file )
-dose.resp.data <- read.csv(dose.resp.file , stringsAsFactors = F)
+# dose.resp.file <- tempfile()
+# download.file("https://ndownloader.figshare.com/files/20237757", dose.resp.file )
+# dose.resp.data <- read.csv(dose.resp.file , stringsAsFactors = F)
+dose.resp.data <- read.csv(paste0(sec_screen_dir, sec_screen_dr), stringsAsFactors = F)
 
 dose.resp <- data.frame(t(dose.resp.data))
 colnames(dose.resp) <- dose.resp[1,]
@@ -144,7 +155,7 @@ sub.dose.resp[,viab := as.numeric(viab)]
 # }
 # 
 # saveRDS(raw.sensitivity , "raw.sensitivity.prismii_v3.rds") # v3 is after removing N<4 and str_failed
-raw.sensitivity <- readRDS(paste0(work_dir,"raw.sensitivity.prismii_v3.rds")) 
+raw.sensitivity <- readRDS(paste0(sens_dir,"raw.sensitivity.prismii_v3.rds")) 
 
 raw.sensitivity[,,"Viability"] <- 2^(raw.sensitivity[ , ,"Viability"])  # Converting log values to decimals (NO need for logs)
 #range(raw.sensitivity[,, "Viability"], na.rm = T) #2.333262e-04 3.217019e+01
@@ -203,15 +214,16 @@ raw.sensitivity[,,"Viability"] <- 100 * (raw.sensitivity[, ,"Viability"]) # Mult
 # profile.sensitivity <- as.data.frame(do.call(rbind, slices))
 # saveRDS(profile.sensitivity , "~/nikta/out/profile.sensitivity.PRISM.rds")
 
-profile.sensitivity<- readRDS(paste0(work_dir,"profile.sensitivity.PRISM.rds"))
+profile.sensitivity<- readRDS(paste0(sens_dir,"profile.sensitivity.PRISM.rds"))
 length(which(is.na(profile.sensitivity$ic50_recomputed))) # 254748
 length(which(is.na(profile.sensitivity$aac_recomputed))) #0
 
 # Published sensitivity data:
 # secondary-screen-dose-response-curve-parameters.csv
-auc.file <- tempfile()
-download.file("https://ndownloader.figshare.com/files/20237739", auc.file)
-auc.data <- read.csv(auc.file , stringsAsFactors = F)
+# auc.file <- tempfile()
+# download.file("https://ndownloader.figshare.com/files/20237739", auc.file)
+# auc.data <- read.csv(auc.file , stringsAsFactors = F)
+auc.data <- read.csv(paste0(sec_screen_dir, sec_screen_auc), stringsAsFactors = F)
 
 auc.data$expid <- paste(auc.data$broad_id , auc.data$screen_id , sep="::")
 auc.data$expid <- paste(auc.data$expid , auc.data$depmap_id, sep="::")
@@ -303,5 +315,5 @@ PRISM_PSet <- PharmacoGx::PharmacoSet("PRISM",
 
 # Add annotation
 PRISM_PSet@annotation$notes <- "This PSet includes drug-dose information from screen II of 'Discovering the anti-cancer potential of non-oncology drugs by systematic viability profiling' paper. Drugs are distinguished by their broad-ids in sensitivity objects. Dose values in the sensitivity objects are reported in micromolar."  
-saveRDS(PRISM_PSet, paste0(work_dir, "PRISM.rds"))
+saveRDS(PRISM_PSet, paste0(out_dir, "PRISM.rds"))
 
