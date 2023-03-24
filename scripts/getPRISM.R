@@ -6,6 +6,7 @@ library(SummarizedExperiment)
 args <- commandArgs(trailingOnly = TRUE)
 out_dir <- args[1]
 download_dir <- paste0(args[1], "download")
+filename <- args[[2]]
 
 # secondary screen csv file names
 sec_screen_drug <- "secondary-screen-replicate-collapsed-treatment-info.csv"
@@ -321,4 +322,4 @@ PRISM_PSet <- PharmacoGx::PharmacoSet("PRISM",
 
 # Add annotation
 PRISM_PSet@annotation$notes <- "This PSet includes drug-dose information from screen II of 'Discovering the anti-cancer potential of non-oncology drugs by systematic viability profiling' paper. Drugs are distinguished by their broad-ids in sensitivity objects. Dose values in the sensitivity objects are reported in micromolar."
-saveRDS(PRISM_PSet, paste0(out_dir, "PSet_PRISM.rds"))
+saveRDS(PRISM_PSet, paste0(out_dir, filename))

@@ -7,6 +7,7 @@ S3 = S3RemoteProvider(
 )
 
 prefix = config["prefix"]
+filename = config["filename"]
 
 rule get_prism_pset:
     input:
@@ -22,10 +23,10 @@ rule get_prism_pset:
         S3.remote(prefix + "download/drugs_with_ids.csv"),
         S3.remote(prefix + "download/cell_annotation_all.csv")
     output:
-        prefix + "PSet_PRISM.rds"
+        S3.remote(prefix + filename)
     shell:
         """
-        Rscript scripts/getPRISM.R {prefix}
+        Rscript scripts/getPRISM.R {prefix} {filename}
         """
 
 rule download_annotation:
